@@ -31,7 +31,7 @@ app.get('/', (req, res) => {
     res.send(`
         <html>
             <body style="font-family: monospace; padding: 20px; background: #fff; color: #000;">
-                <h2>Typewriter 2.0</h2>
+                <h2>Typewriter 2.0 (Pulse Mode)</h2>
                 <input type="text" id="msg" style="width: 300px; padding: 5px;" placeholder="Message..." autofocus>
                 <button onclick="send()">Transmit</button>
                 <p id="status" style="color: #666;"></p>
@@ -43,47 +43,27 @@ app.get('/', (req, res) => {
                         status.innerText = "Transmitting...";
                         
                         for (let char of text) {
+                            // 1. Send Character
                             await fetch('/httpstrans', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ char: char })
                             });
-                            // Time for the game to register the bit change
-                            await new Promise(r => setTimeout(r, 150));
+                            await new Promise(r => setTimeout(r, 100));
+
+                            // 2. Send 00000000 (The Pulse Reset)
+                            await fetch('/httpstrans', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ value: "00000000" })
+                            });
+                            await new Promise(r => setTimeout(r, 100));
                         }
 
-                        // RESET TO ZERO after loop
-                        await fetch('/httpstrans', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ value: "00000000" })
-                        });
-
-                        status.innerText = "Finished and Reset: " + text;
+                        status.innerText = "Finished pulsing: " + text;
                         document.getElementById('msg').value = "";
                     }
                 </script>
-            </body>
-        </html>
-    `);
-});
-
-app.get('/binhelp', (req, res) => {
-    let tableRows = Object.keys(mapping).map(key => {
-        let bin = get8Bit(key);
-        return "<tr><td>'" + key + "'</td><td>" + bin + "</td></tr>";
-    }).join('');
-
-    res.send(`
-        <html>
-            <body style="font-family: monospace; padding: 20px;">
-                <h3>Binary Reference Guide</h3>
-                <table border="1" cellpadding="5" style="border-collapse: collapse;">
-                    <tr><th>Char</th><th>8-Bit Value</th></tr>
-                    ${tableRows}
-                    <tr><td>RESET</td><td>00000000</td></tr>
-                </table>
-                <br><a href="/">Back</a>
             </body>
         </html>
     `);
