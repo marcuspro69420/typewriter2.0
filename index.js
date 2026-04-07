@@ -98,4 +98,4 @@ app.get('/httpstrans', (req, res) => {
     res.json({ value: lastValue });
 });
 
-app.listen(port, () => console.log(\`Server running on port \${port}\`));
+app.listen(port, () => console.log(`Server running on port ${port}`));
