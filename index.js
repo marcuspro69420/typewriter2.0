@@ -5,7 +5,6 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Build Logic Mapping (6-bit base)
 const mapping = {
     ' ': '000000', 'a': '000001', 'b': '000010', 'c': '000011', 'd': '000100',
     'e': '000101', 'f': '000110', 'g': '000111', 'h': '001000', 'i': '001001',
@@ -23,12 +22,11 @@ function get8Bit(char) {
     let isSymbol = "!@#$%?&*()_+".includes(char);
     let shift = (isUpper || isSymbol) ? '1' : '0';
     let next = '1'; 
-    return `${base}${shift}${next}`;
+    return base + shift + next;
 }
 
 let lastValue = "00000000";
 
-// --- MAIN UI PAGE ---
 app.get('/', (req, res) => {
     res.send(`
         <html>
@@ -50,10 +48,18 @@ app.get('/', (req, res) => {
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ char: char })
                             });
-                            // Optional: Small delay for game logic timing
-                            await new Promise(r => setTimeout(r, 100));
+                            // Time for the game to register the bit change
+                            await new Promise(r => setTimeout(r, 150));
                         }
-                        status.innerText = "Finished sending: " + text;
+
+                        // RESET TO ZERO after loop
+                        await fetch('/httpstrans', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ value: "00000000" })
+                        });
+
+                        status.innerText = "Finished and Reset: " + text;
                         document.getElementById('msg').value = "";
                     }
                 </script>
@@ -62,29 +68,27 @@ app.get('/', (req, res) => {
     `);
 });
 
-// --- BINARY HELP PAGE ---
 app.get('/binhelp', (req, res) => {
     let tableRows = Object.keys(mapping).map(key => {
         let bin = get8Bit(key);
-        return `<tr><td>'${key}'</td><td>${bin}</td></tr>`;
+        return "<tr><td>'" + key + "'</td><td>" + bin + "</td></tr>";
     }).join('');
 
     res.send(`
         <html>
             <body style="font-family: monospace; padding: 20px;">
                 <h3>Binary Reference Guide</h3>
-                <p>Format: [Bits 1-6: Char] [Bit 7: Shift] [Bit 8: NEXT]</p>
                 <table border="1" cellpadding="5" style="border-collapse: collapse;">
                     <tr><th>Char</th><th>8-Bit Value</th></tr>
                     ${tableRows}
+                    <tr><td>RESET</td><td>00000000</td></tr>
                 </table>
-                <br><a href="/">Back to Home</a>
+                <br><a href="/">Back</a>
             </body>
         </html>
     `);
 });
 
-// --- TRANSMITTER ENDPOINT ---
 app.post('/httpstrans', (req, res) => {
     if (req.body.char) {
         lastValue = get8Bit(req.body.char);
@@ -98,4 +102,4 @@ app.get('/httpstrans', (req, res) => {
     res.json({ value: lastValue });
 });
 
-app.listen(port, () => console.log(`Server running on port ${port}`));
+app.listen(port, () => console.log('Server running on port ' + port));
