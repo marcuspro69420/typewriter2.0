@@ -31,16 +31,25 @@ app.get('/', (req, res) => {
     res.send(`
         <html>
             <body style="font-family: monospace; padding: 20px; background: #fff; color: #000;">
-                <h2>Typewriter 2.0 (Pulse Mode)</h2>
-                <input type="text" id="msg" style="width: 300px; padding: 5px;" placeholder="Message..." autofocus>
-                <button onclick="send()">Transmit</button>
+                <h2>Typewriter 2.0 (Turbo Pulse)</h2>
+                <div style="margin-bottom: 10px;">
+                    <input type="text" id="msg" style="width: 300px; padding: 5px;" placeholder="Message..." autofocus>
+                    <button onclick="send()">Transmit</button>
+                </div>
+                <div>
+                    <label>Delay (ms): </label>
+                    <input type="number" id="speed" value="100" style="width: 60px; padding: 5px;">
+                    <small>100ms = 0.1s</small>
+                </div>
                 <p id="status" style="color: #666;"></p>
 
                 <script>
                     async function send() {
                         const text = document.getElementById('msg').value;
                         const status = document.getElementById('status');
-                        status.innerText = "Transmitting...";
+                        const delay = parseInt(document.getElementById('speed').value) || 100;
+                        
+                        status.innerText = "Transmitting at " + (delay/1000) + "s speed...";
                         
                         for (let char of text) {
                             // 1. Send Character
@@ -49,15 +58,15 @@ app.get('/', (req, res) => {
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ char: char })
                             });
-                            await new Promise(r => setTimeout(r, 100));
+                            await new Promise(r => setTimeout(r, delay));
 
-                            // 2. Send 00000000 (The Pulse Reset)
+                            // 2. Pulse Reset
                             await fetch('/httpstrans', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ value: "00000000" })
                             });
-                            await new Promise(r => setTimeout(r, 100));
+                            await new Promise(r => setTimeout(r, delay));
                         }
 
                         status.innerText = "Finished pulsing: " + text;
