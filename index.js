@@ -16,13 +16,12 @@ const mapping = {
     '9': '100011', '0': '100100', '-': '100101', '=': '100110', '.': '100111'
 };
 
-function get8Bit(char) {
+function get8Bit(char, nextBit) {
     let base = mapping[char.toLowerCase()] || '000000';
     let isUpper = char === char.toUpperCase() && char.toLowerCase() !== char.toUpperCase();
     let isSymbol = "!@#$%?&*()_+".includes(char);
     let shift = (isUpper || isSymbol) ? '1' : '0';
-    let next = '1'; 
-    return base + shift + next;
+    return base + shift + nextBit;
 }
 
 let lastValue = "00000000";
@@ -31,15 +30,14 @@ app.get('/', (req, res) => {
     res.send(`
         <html>
             <body style="font-family: monospace; padding: 20px; background: #fff; color: #000;">
-                <h2>Typewriter 2.0 (Turbo Pulse)</h2>
+                <h2>Typewriter 2.0 (Clocked Pulse)</h2>
                 <div style="margin-bottom: 10px;">
                     <input type="text" id="msg" style="width: 300px; padding: 5px;" placeholder="Message..." autofocus>
                     <button onclick="send()">Transmit</button>
                 </div>
                 <div>
-                    <label>Delay (ms): </label>
+                    <label>Step Delay (ms): </label>
                     <input type="number" id="speed" value="100" style="width: 60px; padding: 5px;">
-                    <small>100ms = 0.1s</small>
                 </div>
                 <p id="status" style="color: #666;"></p>
 
@@ -49,27 +47,35 @@ app.get('/', (req, res) => {
                         const status = document.getElementById('status');
                         const delay = parseInt(document.getElementById('speed').value) || 100;
                         
-                        status.innerText = "Transmitting at " + (delay/1000) + "s speed...";
+                        status.innerText = "Transmitting...";
                         
                         for (let char of text) {
-                            // 1. Send Character
+                            // STEP 1: Set the character bits (NEXT is 0)
                             await fetch('/httpstrans', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ char: char })
+                                body: JSON.stringify({ char: char, next: "0" })
                             });
                             await new Promise(r => setTimeout(r, delay));
 
-                            // 2. Pulse Reset
+                            // STEP 2: Trigger the NEXT bit (NEXT is 1)
                             await fetch('/httpstrans', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ value: "00000000" })
+                                body: JSON.stringify({ char: char, next: "1" })
+                            });
+                            await new Promise(r => setTimeout(r, delay));
+
+                            // STEP 3: Release the NEXT bit (NEXT is 0)
+                            await fetch('/httpstrans', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ char: char, next: "0" })
                             });
                             await new Promise(r => setTimeout(r, delay));
                         }
 
-                        status.innerText = "Finished pulsing: " + text;
+                        status.innerText = "Sent: " + text;
                         document.getElementById('msg').value = "";
                     }
                 </script>
@@ -80,7 +86,7 @@ app.get('/', (req, res) => {
 
 app.post('/httpstrans', (req, res) => {
     if (req.body.char) {
-        lastValue = get8Bit(req.body.char);
+        lastValue = get8Bit(req.body.char, req.body.next || "0");
     } else if (req.body.value) {
         lastValue = req.body.value;
     }
